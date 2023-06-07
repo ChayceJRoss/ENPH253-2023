@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
-#include <convolutions.h> 
+#include "convolutions.h"
 
 #define INPUTPIN PA0
 #define SAMPLES 200
@@ -9,7 +9,12 @@
 #define OLED_RESET 	-1 // This display does not have a reset pin accessible
 Adafruit_SSD1306 display_handler(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+double ref_signal[2*SAMPLES];
+double raw_signal[SAMPLES];
+double correlation_signal[SAMPLES];
+
 int * take_samples();
+
 
 void setup() {
   display_handler.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -33,12 +38,12 @@ void loop()
   int * signal_array = take_samples();
   int t1 = millis();
   int elapsed_time = t1 - t0;
-  int * sample_array = make_samples(SAMPLES, elapsed_time);
-  int * output_array = cross_correlation(sample_array, signal_array, SAMPLES);
-  int max = max_of_array(output_array, SAMPLES);
+  make_samples(ref_signal, SAMPLES, elapsed_time);
+  cross_correlation(correlation_signal, ref_signal, raw_signal, SAMPLES);
+  double max = max_of_array(correlation_signal, SAMPLES);
   display_handler.clearDisplay();
   display_handler.setCursor(0,0);
-  display_handler.println("Hello world!");
+  display_handler.println(max);
   display_handler.display();
 }
 
