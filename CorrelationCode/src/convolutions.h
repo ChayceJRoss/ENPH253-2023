@@ -1,9 +1,9 @@
+#pragma once
 #include <cmath>
-
 #define PI 3.14159265
 
-int * make_samples(int samples, int elapsed_time);
-int * cross_correlation(int * sample_array, int * signal_array, int samples);
-int max_of_array(int * array, int size);
+void make_samples(double * ref_array, int samples, int elapsed_time);
+void cross_correlation(double * corr_array, double * ref_array, double * raw_array, int samples);
+double max_of_array(double * array, int size);
 
 
