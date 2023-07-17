@@ -7,9 +7,14 @@
 
 
 //reflective sensor pins
-#define LEFT_SENSOR PB3 //leftmost sensor pin (a)
-#define RIGHT_SENSOR PB4 //central sensor pin (b)
-#define CENTER_SENSOR PB5 //rightmost sensor pin (c)
+#define s1 PB3 //top leftmost sensor pin 
+#define s2 PB11 //
+#define s3 PB12 //
+#define s4 PB6 //top rightmost sensor pin
+#define s5 PB7 //bottom leftmost sensor pin
+#define s6 PB8 
+#define s7 PB9
+#define s8 PB10 //bottom rightmost sensor pin
 #define KP_POT PA4 //potentiometer for kp
 #define KD_POT PA5 //potentiometer for ki
 #define CONSTANT_TRIGGER PA15 //button to trigger constant speed
