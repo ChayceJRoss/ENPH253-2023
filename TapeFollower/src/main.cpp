@@ -31,6 +31,10 @@
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET 	-1 // This display does not have a reset pin accessible
 #define SPEED 25000
+#define MAX_SPEED 60000
+#define DIFF_STEERING 0.4
+#define MAX_ANGLE 60
+
 
 Adafruit_SSD1306 display_handler(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 // // // put function declarations here:
@@ -113,9 +117,28 @@ void print_constants(Adafruit_SSD1306 display_handler, int kp, int kd, int outpu
 }
 
 void servo_write(int angle) {
-  int millisecs = map(angle, 0, 180, 500, 2500);
-  int speed_adjust = (angle - 90) * 200; 
+  int local_angle = angle;
+  if (abs(local_angle) > MAX_ANGLE) {
+    local_angle = MAX_ANGLE * ( (angle > 0) ? 1 : -1);
+  }
+  int millisecs = map(local_angle, 0, 180, 500, 2500);
+  int speed_adjust = (((double) angle - 90.0) / 60.0) * DIFF_STEERING * SPEED ;
+  int left_speed = SPEED + speed_adjust;
+  int right_speed = SPEED - speed_adjust;
+
+  if (left_speed > MAX_SPEED) {
+    left_speed = MAX_SPEED;
+  }
+  if (right_speed > MAX_SPEED) {
+    right_speed = MAX_SPEED;
+  }
+  if (right_speed < 0) {
+    right_speed = 0;
+  }
+  if (left_speed < 0) {
+    left_speed = 0;
+  } 
   pwm_start(SERVO, 50, millisecs, TimerCompareFormat_t::MICROSEC_COMPARE_FORMAT);
-  // pwm_start(MOTOR_A_FORWARD, 500, 25000 + speed_adjust, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
-  // pwm_start(MOTOR_B_FORWARD, 500, 25000 - speed_adjust, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  pwm_start(MOTOR_A_FORWARD, 500, left_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  pwm_start(MOTOR_B_FORWARD, 500, right_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
 }
