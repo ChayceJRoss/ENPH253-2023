@@ -112,9 +112,8 @@ int getKd(){
 }
 
 
-int find_state()
+int find_state_eight()
 {
-  int rel_pos = 0;
   int trans = 0;
   int rot = 0;
   int sLeft = 0;
@@ -148,6 +147,19 @@ int find_state()
     }
   }
   
+  return u;
+}
+
+int find_state_four(){
+  int sLeft = 0;
+  int sRight = 0;
+  int u;
+
+  for(int i = 0; i < 2; i++){
+    sLeft = sLeft + sensor_values_tL[i];
+    sRight = sRight + sensor_values_tR[i];
+  }
+  u = sRight - sLeft;
   return u;
 }
 
@@ -201,7 +213,7 @@ void loop() {
   tau = millis() - t;
   t = millis();
   read_sensors();
-  state = find_state();
+  state = find_state_four();
 
   output = getOutput(state, tau);
   servo_write(90 - output);
