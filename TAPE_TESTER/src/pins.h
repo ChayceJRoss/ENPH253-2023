@@ -7,10 +7,10 @@
 
 
 //reflective sensor pins
-#define s1 PA11 //front leftmost sensor pin 
+#define s1 PA11 //top leftmost sensor pin 
 #define s2 PA12 // 
 #define s3 PA15 //
-#define s4 PB3 //front rightmost sensor pin
+#define s4 PB3 //top rightmost sensor pin
 #define s5 PB4 //bottom leftmost sensor pin
 #define s6 PB5 
 #define s7 PB8
