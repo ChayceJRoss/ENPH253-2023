@@ -42,10 +42,12 @@ void servo_write(int angle);
 PD pd(0, 0);
 int t = 0;
 int tau = 0;
-int sensor_values_tL[] = {0, 0}; //front row, left side (ordered outermost sensor to innermost)
-int sensor_values_tR[] = {0, 0}; //front row, right side (ordered innermost sensor to outermost)
-int sensor_values_bL[] = {0, 0}; //back row, left side (ordered outermost sensor to innermost)
-int sensor_values_bR[] = {0, 0}; //back row, right side (ordered outermost sensor to innermost)
+int sensor_values_tL[] = {0, 0}; //front row, left side (ordered outermost sensor to innermost) FOR 6 and 4 setup
+int sensor_values_tR[] = {0, 0}; //front row, right side (ordered innermost sensor to outermost) FOR 6 and 4 setup
+int sensor_values_centres[] = {0,0}; //centre line followers for six sensors (0 for left, 1 for right)
+
+int sensor_values_bL[] = {0, 0}; //back row, left side (ordered outermost sensor to innermost) in addition to tL and tR, for eight>
+int sensor_values_bR[] = {0, 0}; //back row, right side (ordered outermost sensor to innermost) ^^
 
 int state = 0;
 int prevState = 0;
@@ -147,6 +149,21 @@ int find_state_eight()
   return u;
 }
 
+int find_state_six(){
+  int sLeft = 0;
+  int sRight = 0;
+  int sCentre = 0;
+  int u;
+
+  for(int i = 0; i < 2; i++){
+    sLeft = sLeft + sensor_values_tL[i];
+    sRight = sRight + sensor_values_tR[i];
+    sCentre = sCentre + sensor_values_centres[i];
+  }
+  u = (sRight - sLeft)/(sLeft+sRight+sCentre);
+  return u;
+}
+
 int find_state_four(){
   int sLeft = 0;
   int sRight = 0;
@@ -175,10 +192,10 @@ void setup() {
   pinMode(s2, INPUT_PULLUP);
   pinMode(s3, INPUT_PULLUP);
   pinMode(s4, INPUT_PULLUP);
-  pinMode(s5, INPUT_PULLUP);
-  pinMode(s6, INPUT_PULLUP);
-  pinMode(s7, INPUT_PULLUP);
-  pinMode(s8, INPUT_PULLUP);
+  pinMode(s5, INPUT_PULLUP); //add for six
+  pinMode(s6, INPUT_PULLUP); //add for six
+  //pinMode(s7, INPUT_PULLUP); //add for eight
+  //pinMode(s8, INPUT_PULLUP); //add for eight
 
   // //motor setup
   pinMode(MOTOR_A_FORWARD, OUTPUT);
@@ -220,12 +237,27 @@ void read_sensors() {
   sensor_values_tR[0] = digitalRead(s3);
   sensor_values_tR[1] = digitalRead(s4);
 
-  sensor_values_bL[0] = digitalRead(s5);
-  sensor_values_bL[1] = digitalRead(s6);
-  sensor_values_bR[0] = digitalRead(s7);
-  sensor_values_bR[1] = digitalRead(s8);
+  sensor_values_centres[0] = digitalRead(s5); //add for six sensors
+  sensor_values_centres[1] = digitalRead(s6); // add for six sensors
+
+
+  //sensor_values_bL[0] = digitalRead(s5); //add for eight
+  //sensor_values_bL[1] = digitalRead(s6); //add for eight
+  //sensor_values_bR[0] = digitalRead(s7); //add for eight sensors
+  //sensor_values_bR[1] = digitalRead(s8); //add for eight sensors
 }
 
+void print_constants(Adafruit_SSD1306 display_handler, int kp, int kd, int output, int state) {
+    display_handler.clearDisplay();
+    display_handler.setCursor(0,0);
+    display_handler.println("KP: " + String(kp));
+    display_handler.println("KD: " + String(kd));
+    display_handler.println("FRONT SENSORS: " + String(sensor_values_tL[0]) + " ,"+ String(sensor_values_tL[1]) + " ,"+  String(sensor_values_centres[0])  + " ,"+  String(sensor_values_centres[1]) + " ," + String(sensor_values_tR[0]) + " ,"+ String(sensor_values_tR[1]));
+    //display_handler.println("BACK SENSORS: " + String(sensor_values_bL[0]) + " ,"+ String(sensor_values_bL[1]) + " ,"+  String(sensor_values_bL[2])  + " ,"+  String(sensor_values_bL[3]) + " ," + String(sensor_values_bR[0]) + " ,"+ String(sensor_values_bR[1]) + " ,"+  String(sensor_values_bR[2])  + " ,"+  String(sensor_values_bR[3]));
+    display_handler.println("OUTPUT: " + String(output));
+    display_handler.println("STATE: " + String(state));
+    display_handler.display();
+}
 
 void servo_write(int angle) {
   int local_angle = angle;
