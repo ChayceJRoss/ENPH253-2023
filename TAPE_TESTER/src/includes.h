@@ -1,0 +1,9 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <Servo.h>
+#include <math.h>
+#include "pins.h"
+#include "controls.h"
+#include "oled.h"
+#include <Adafruit_SSD1306.h>

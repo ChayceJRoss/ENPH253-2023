@@ -1,9 +1,9 @@
 //motor pins
 
-#define MOTOR_A_FORWARD PB_8//forward pwm motor A (back left)
-#define MOTOR_A_BACKWARD PB_9//backward pwm motor A
-#define MOTOR_B_FORWARD PA_9////forward pwm motor B (back right)
-#define MOTOR_B_BACKWARD PA_10//backward pwm motor B
+#define MOTOR_A_FORWARD PA_0
+#define MOTOR_A_BACKWARD PA_1
+#define MOTOR_B_FORWARD PA_2
+#define MOTOR_B_BACKWARD PA_3
 
 
 //reflective sensor pins
