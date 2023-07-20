@@ -3,12 +3,14 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET 	-1 // This display does not have a reset pin accessible
-#define SPEED 30000
-#define MAX_SPEED 60000
-#define DIFF_STEERING 0.8
-#define MAX_ANGLE 50
-#define P_CONST 7.0
-#define D_CONST 35.0
+#define SPEED 25000
+#define MAX_SPEED 40000
+#define DIFF_STEERING 1.0
+#define MAX_ANGLE 60
+#define P_CONST 12.0
+#define D_CONST 100.0
+#define SERVO_TOP 1000
+#define SERVO_BOTTOM 2000
 // // // put function declarations here:
 
 
@@ -122,8 +124,9 @@ void setup() {
 
   // set_constants();
   // attachInterrupt(digitalPinToInterrupt(CONSTANT_TRIGGER), set_constants, RISING);
+  servo_write(90);
   t = millis();
-  delay(1000);
+  delay(2000);
 }
 
 void loop() {
@@ -133,7 +136,7 @@ void loop() {
   prevState = state;
   state = find_state_six();
   output = getOutput();
-  servo_write(90 + output);
+  servo_write(90 - output);
   delay(10);
 }
 
@@ -162,7 +165,7 @@ void servo_write(int angle)
   {
     local_angle = angle;
   }
-  int millisecs = map(local_angle, 0, 180, 500, 2500);
+  int millisecs = map(local_angle, 0, 180, SERVO_BOTTOM, SERVO_TOP);
   int speed_adjust = (((double) angle - 90.0) / 60.0) * DIFF_STEERING * SPEED ;
   int left_speed = SPEED + speed_adjust;
   int right_speed = SPEED - speed_adjust;
@@ -181,9 +184,9 @@ void servo_write(int angle)
   }
   pwm_start(SERVO, 50, millisecs, TimerCompareFormat_t::MICROSEC_COMPARE_FORMAT);
   // delay(20);
-  pwm_start(MOTOR_A_FORWARD, 500, right_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  pwm_start(MOTOR_A_FORWARD, 500, left_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
   // // delay(20);
-  pwm_start(MOTOR_B_FORWARD, 500, left_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  pwm_start(MOTOR_B_FORWARD, 500, right_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
 }
 
 
