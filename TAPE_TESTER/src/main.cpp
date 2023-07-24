@@ -3,12 +3,12 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET 	-1 // This display does not have a reset pin accessible
-#define SPEED 25000
+#define SPEED 35000
 #define MAX_SPEED 60000
 #define DIFF_STEERING 1.0
 #define MAX_ANGLE 50
-#define P_CONST 15.0
-#define D_CONST 5000.0
+#define P_CONST 10.0
+#define D_CONST 250.0
 // // // put function declarations here:
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -139,19 +139,19 @@ void setup() {
 
   // set_constants();
   // attachInterrupt(digitalPinToInterrupt(CONSTANT_TRIGGER), set_constants, RISING);
-  t = millis();
+  t = micros();
   delay(1000);
 }
 
 void loop() {
-  tau = millis() - t;
-  t = millis();
+  tau = micros() - t;
+  t = micros();
   read_sensors();
   prevState = state;
   state = find_state_six();
   output = getOutput();
   // servo_write(90 - output);
-  delay(10);
+  delay(50);
   print_constants();
 }
 
@@ -212,7 +212,7 @@ void servo_write(int angle)
   }
   pwm_start(SERVO, 50, millisecs, TimerCompareFormat_t::MICROSEC_COMPARE_FORMAT);
   // delay(20);
-  pwm_start(MOTOR_A_FORWARD, 500, left_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  pwm_start(MOTOR_A_FORWARD, 500, SPEED, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
   // // delay(20);
-  pwm_start(MOTOR_B_FORWARD, 500, right_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  pwm_start(MOTOR_B_FORWARD, 500, SPEED, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
 }

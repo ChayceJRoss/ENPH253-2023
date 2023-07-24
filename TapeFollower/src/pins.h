@@ -1,7 +1,7 @@
 //motor pins
 
-#define MOTOR_A_FORWARD PA_0
-#define MOTOR_A_BACKWARD PA_1
+#define MOTOR_A_FORWARD PA_1
+#define MOTOR_A_BACKWARD PA_0
 #define MOTOR_B_FORWARD PA_2
 #define MOTOR_B_BACKWARD PA_3
 
