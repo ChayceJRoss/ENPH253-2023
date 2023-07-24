@@ -3,21 +3,27 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET 	-1 // This display does not have a reset pin accessible
-#define SPEED 25000
-#define MAX_SPEED 40000
+#define SPEED 12000
+#define MAX_SPEED 26000
 #define DIFF_STEERING 1.0
-#define MAX_ANGLE 60
-#define P_CONST 12.0
-#define D_CONST 100.0
-#define SERVO_TOP 1000
-#define SERVO_BOTTOM 2000
+#define MAX_ANGLE 50
+#define P_CONST 8.0
+#define D_CONST  00000.0
+#define I_CONST 0.0001
+#define SERVO_TOP 500
+#define SERVO_BOTTOM 2500
+#define MAX_INTEGRAL 10
 // // // put function declarations here:
 
 
+int n;
+int speed = SPEED;
 uint8_t light = HIGH;
 void servo_write(int angle);
-int t = 0;
+int t0 = 0;
+int t1 = 0;
 int tau = 0;
+double integral;
 int sensor_values_tL[] = {0, 0}; //front row, left side (ordered outermost sensor to innermost) FOR 6 and 4 setup
 int sensor_values_tR[] = {0, 0}; //front row, right side (ordered innermost sensor to outermost) FOR 6 and 4 setup
 int sensor_values_centres[] = {0,0}; //centre line followers for six sensors (0 for left, 1 for right)
@@ -26,22 +32,14 @@ int sensor_values_bL[] = {0, 0}; //back row, left side (ordered outermost sensor
 int sensor_values_bR[] = {0, 0}; //back row, right side (ordered outermost sensor to innermost) ^^
 
 double state = 0;
-int prevState = 0;
-int kd = D_CONST;
-int kp = P_CONST;
+double prevState = 0;
+double kd = D_CONST;
+double kp = P_CONST;
 double output = 0;
 void read_sensors();
 void set_constants();
 
 //PD "class"
-
-void newKp(double new_Kp){
-  kp = new_Kp;
-}    
-    
-void newKd(double new_Kd){
-  kd = new_Kd;
-}
     
 double getP(int state){
   double prop = kp * state;
@@ -59,7 +57,9 @@ int getPrev(){
 
 double d(){
   double der;
-  if (tau == 0) return 0;
+  if (tau == 0){
+    return 0;
+  }
   der = kd*(state - prevState)/(double) tau;  
   return der;
 }   
@@ -71,6 +71,17 @@ double p(){
   return prop;
 }    
 
+double i() {
+  integral = integral + I_CONST * state;
+  if (abs(integral) > MAX_INTEGRAL) {
+    integral = MAX_INTEGRAL * (integral > 0 ? 1 : -1);
+  }
+  if (n != 0){
+    integral = 0;
+  }
+  return integral;
+} 
+
 int getOutput(){
   double output;
   output = p() + d();
@@ -78,22 +89,16 @@ int getOutput(){
   return (int) output;
 }
 
-int getKp(){
-  return kp;
-}
 
-int getKd(){
-  return kd;
-}
 
 double find_state_six(){
-  int u;
-  int n;
+  double u;
 
-  u = -3*sensor_values_tL[0] -2*sensor_values_tL[1]  - sensor_values_centres[0] + sensor_values_centres[1] + 2*sensor_values_tR[0] + 3*sensor_values_tR[1];
+
+  u = -3.0*sensor_values_tL[0] -2*sensor_values_tL[1]  - sensor_values_centres[0] + sensor_values_centres[1] + 2*sensor_values_tR[0] + 3*sensor_values_tR[1];
   n = sensor_values_tL[0] + sensor_values_tL[1] + sensor_values_centres[0] + sensor_values_centres[1] + sensor_values_tR[0] + sensor_values_tR[1];
   if (n == 0){
-    return (state > 0) ? 5 : -5;
+    return (state > 0) ? 8 : -8 ;
   }
   return (double) u / n;
 }
@@ -125,24 +130,27 @@ void setup() {
   // set_constants();
   // attachInterrupt(digitalPinToInterrupt(CONSTANT_TRIGGER), set_constants, RISING);
   servo_write(90);
-  t = millis();
-  delay(2000);
+  delay(1000); 
+  t0 = micros();
 }
 
 void loop() {
-  tau = millis() - t;
-  t = millis();
+  t1 = micros();
+  if (t1 < t0) {
+    tau = 0;
+  } else {
+    tau =  t1 - t0;
+  }
+  t0 = t1;
   read_sensors();
   prevState = state;
   state = find_state_six();
   output = getOutput();
-  servo_write(90 - output);
-  delay(10);
-}
-
-void set_constants() {
-  kp = analogRead(KP_POT) / 20;
-  kd = analogRead(KD_POT) / 20;
+  if (abs(output) > MAX_ANGLE)
+  {
+    output = MAX_ANGLE * ((output > 0) ? 1 : -1);
+  }
+  servo_write(70 - output);
 }
 
 void read_sensors() {
@@ -156,19 +164,10 @@ void read_sensors() {
 
 void servo_write(int angle)
 {
-  int local_angle = angle - 90;
-  if (abs(local_angle) > MAX_ANGLE)
-  {
-    local_angle = 90 + (MAX_ANGLE * ((local_angle > 0) ? 1 : -1));
-  }
-  else
-  {
-    local_angle = angle;
-  }
-  int millisecs = map(local_angle, 0, 180, SERVO_BOTTOM, SERVO_TOP);
-  int speed_adjust = (((double) angle - 90.0) / 60.0) * DIFF_STEERING * SPEED ;
-  int left_speed = SPEED + speed_adjust;
-  int right_speed = SPEED - speed_adjust;
+  int millisecs = map(angle, 0, 180, SERVO_BOTTOM, SERVO_TOP);
+  int speed_adjust = (((double) angle - 90.0) / MAX_ANGLE) * DIFF_STEERING * SPEED ;
+  int left_speed = speed + speed_adjust;
+  int right_speed = speed - speed_adjust;
 
   if (left_speed > MAX_SPEED) {
     left_speed = MAX_SPEED;
@@ -184,9 +183,9 @@ void servo_write(int angle)
   }
   pwm_start(SERVO, 50, millisecs, TimerCompareFormat_t::MICROSEC_COMPARE_FORMAT);
   // delay(20);
-  pwm_start(MOTOR_A_FORWARD, 500, left_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  pwm_start(MOTOR_A_FORWARD, 100, left_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
   // // delay(20);
-  pwm_start(MOTOR_B_FORWARD, 500, right_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  pwm_start(MOTOR_B_FORWARD, 100, right_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
 }
 
 
