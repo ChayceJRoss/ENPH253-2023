@@ -7,3 +7,6 @@
 #include "controls.h"
 #include "oled.h"
 #include <Adafruit_SSD1306.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>

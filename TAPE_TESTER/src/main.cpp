@@ -6,9 +6,9 @@
 #define SPEED 35000
 #define MAX_SPEED 60000
 #define DIFF_STEERING 1.0
-#define MAX_ANGLE 50
-#define P_CONST 10.0
-#define D_CONST 250.0
+#define MAX_ANGLE 45
+#define P_CONST 6.0
+#define D_CONST 0.0
 // // // put function declarations here:
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -21,10 +21,12 @@ void print_constants();
 void servo_write(int angle);
 int t = 0;
 int tau = 0;
+int loops = 0;
+int d_queue[] = {0, 0, 0, 0, 0};
 int sensor_values_tL[] = {0, 0}; //front row, left side (ordered outermost sensor to innermost) FOR 6 and 4 setup
 int sensor_values_tR[] = {0, 0}; //front row, right side (ordered innermost sensor to outermost) FOR 6 and 4 setup
 int sensor_values_centres[] = {0,0}; //centre line followers for six sensors (0 for left, 1 for right)
-
+int d_timer = 0;
 int sensor_values_bL[] = {0, 0}; //back row, left side (ordered outermost sensor to innermost) in addition to tL and tR, for eight>
 int sensor_values_bR[] = {0, 0}; //back row, right side (ordered outermost sensor to innermost) ^^
 
@@ -63,7 +65,7 @@ int getPrev(){
 double d(){
   double der;
   if (tau == 0) return 0;
-  der = kd*(state - prevState)/(double) tau;  
+  der = kd*(state - prevState);
   return der;
 }   
 
@@ -139,25 +141,24 @@ void setup() {
 
   // set_constants();
   // attachInterrupt(digitalPinToInterrupt(CONSTANT_TRIGGER), set_constants, RISING);
-  t = micros();
+  servo_write(80);
+  t = millis();
   delay(1000);
+  prevState = find_state_six();
 }
 
 void loop() {
-  tau = micros() - t;
-  t = micros();
+  tau = millis() - t;
+  d_timer += tau;
+  if (d_timer > 500) {
+    prevState = state;
+    d_timer = 0;
+  }
+  t = millis();
   read_sensors();
-  prevState = state;
   state = find_state_six();
   output = getOutput();
-  // servo_write(90 - output);
-  delay(50);
   print_constants();
-}
-
-void set_constants() {
-  kp = analogRead(KP_POT) / 20;
-  kd = analogRead(KD_POT) / 20;
 }
 
 void read_sensors() {
@@ -184,17 +185,17 @@ void print_constants() {
 
 void servo_write(int angle)
 {
-  int local_angle = angle - 90;
+  int local_angle = angle - 60;
   if (abs(local_angle) > MAX_ANGLE)
   {
-    local_angle = 90 + (MAX_ANGLE * ((local_angle > 0) ? 1 : -1));
+    local_angle = 60 + (MAX_ANGLE * ((local_angle > 0) ? 1 : -1));
   }
   else
   {
     local_angle = angle;
   }
-  int millisecs = map(local_angle, 0, 180, 500, 2500);
-  int speed_adjust = (((double) angle - 90.0) / 60.0) * DIFF_STEERING * SPEED ;
+  int millisecs = map(local_angle, 0, 120, 500, 2500);
+  int speed_adjust = (((double) angle - 60.0) / 120.0) * DIFF_STEERING * SPEED ;
   int left_speed = SPEED + speed_adjust;
   int right_speed = SPEED - speed_adjust;
 

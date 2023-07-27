@@ -3,19 +3,28 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET 	-1 // This display does not have a reset pin accessible
-#define SPEED 12000
-#define MAX_SPEED 26000
+#define SPEED 15000
+#define MAX_SPEED 60000
 #define DIFF_STEERING 1.0
-#define MAX_ANGLE 50
-#define P_CONST 8.0
-#define D_CONST  00000.0
-#define I_CONST 0.0001
-#define SERVO_TOP 500
-#define SERVO_BOTTOM 2500
+#define MAX_ANGLE 34
+#define P_CONST 8.3
+#define D_CONST  8.0
+#define I_CONST 0.01
+#define SERVO_TOP 1130
+#define SERVO_BOTTOM 400
 #define MAX_INTEGRAL 10
+#define D_SAMPLE 100
+#define SERVO_CENTER 60
+
+#define SENSOR_3_VALUE 1.9
+#define SENSOR_2_VALUE 0.6
+#define SENSOR_1_VALUE 0.3
 // // // put function declarations here:
 
+Adafruit_BNO055 bno = Adafruit_BNO055(55);
+Adafruit_SSD1306 display_handler(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+bool flag = false;
 int n;
 int speed = SPEED;
 uint8_t light = HIGH;
@@ -23,6 +32,7 @@ void servo_write(int angle);
 int t0 = 0;
 int t1 = 0;
 int tau = 0;
+int starter_loops = 3;
 double integral;
 int sensor_values_tL[] = {0, 0}; //front row, left side (ordered outermost sensor to innermost) FOR 6 and 4 setup
 int sensor_values_tR[] = {0, 0}; //front row, right side (ordered innermost sensor to outermost) FOR 6 and 4 setup
@@ -36,11 +46,232 @@ double prevState = 0;
 double kd = D_CONST;
 double kp = P_CONST;
 double output = 0;
+int d_timer = 0;
+int loop_count = 0;
+
+
+void collision();
+double getP(int state);
+void resetState(int newState);
+int getPrev();
+double d();
+double p();
+double i();
+int getOutput();
+double find_state_six();
 void read_sensors();
 void set_constants();
 
+
+
 //PD "class"
     
+
+void setup() {
+  //turning servo setup
+  pinMode(SERVO, OUTPUT);
+
+  //sensor setup
+  pinMode(s1, INPUT_PULLUP);
+  pinMode(s2, INPUT_PULLUP);
+  pinMode(s3, INPUT_PULLUP);
+  pinMode(s4, INPUT_PULLUP);
+  pinMode(s5, INPUT_PULLUP); //add for six
+  pinMode(s6, INPUT_PULLUP); //add for six
+
+  //motor setup
+  pinMode(MOTOR_A_FORWARD, OUTPUT);
+  pinMode(MOTOR_A_BACKWARD, OUTPUT);
+  pinMode(MOTOR_B_FORWARD, OUTPUT);
+  pinMode(MOTOR_B_BACKWARD, OUTPUT);
+  pinMode(PC13, OUTPUT);
+
+  // sonar setup
+  pinMode(SONAR_INTR, INPUT_PULLUP);
+  pinMode(SONAR_PWM, OUTPUT);
+
+  // OLED setup
+  display_handler.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display_handler.display();
+  delay(2000);
+  display_handler.clearDisplay();
+  display_handler.setTextSize(1);
+  display_handler.setTextColor(SSD1306_WHITE);
+  display_handler.setCursor(0,0);
+  display_handler.println("Hello, world!");
+  display_handler.display();
+
+  pwm_start(MOTOR_A_BACKWARD, 100, 0, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  pwm_start(MOTOR_B_BACKWARD, 100, 0, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+
+  // gyro setup
+  // if(!bno.begin()) {
+  //   while(1) {
+  //     delay(1000);
+  //   }
+  // }
+
+  // bno.setExtCrystalUse(true);
+ 
+  // heartbeat
+  digitalWrite(PC13, LOW);
+
+  // sonar
+  // pwm_start(SONAR_PWM, 250, 90, RESOLUTION_12B_COMPARE_FORMAT);
+
+  // center servo
+  servo_write(SERVO_CENTER);
+  delay(100); 
+
+  // initialisation constants
+  t0 = millis();
+  read_sensors();
+  prevState = find_state_six();
+
+  // collision interupt
+  // attachInterrupt(digitalPinToInterrupt(SONAR_INTR), collision, RISING);
+}
+
+void loop() {
+
+
+  // initialisation loops
+  if (starter_loops) {
+    starter_loops--;
+    flag = false;
+    delay(500);
+    return;
+  }
+
+  if (loop_count > 10) {
+    light = !light;
+    digitalWrite(PC13, light);
+    // delay(100);
+    sensors_event_t event;  
+    bno.getEvent(&event);
+
+    display_handler.setCursor(0,0);
+    display_handler.println(event.orientation.z);
+    display_handler.display();
+    int delay_time = abs(event.orientation.z * 400 / 6);
+    delay(delay_time);
+    if (event.orientation.z > 6) {
+      speed = 0;
+    } else if(event.orientation.z < -6) {
+      speed = SPEED * 1.5;
+    } else {
+      speed = SPEED;
+    }
+    loop_count = 0;
+  }
+  // collision
+  // if (flag) {
+  //   pwm_start(MOTOR_A_FORWARD, 100, 0, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  //   delay(20);
+  //   pwm_start(MOTOR_B_FORWARD, 100, 0, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  //   // display_handler.clearDisplay();
+  //   // display_handler.setTextSize(1);
+  //   // display_handler.setTextColor(SSD1306_WHITE);
+  //   // display_handler.setCursor(0,0);
+  //   // display_handler.println("Collision!");
+  //   // display_handler.display();
+  //   delay(3000);
+  //   flag = false;
+  //   return;
+  // }
+
+  // find state
+  read_sensors();
+  state = find_state_six();
+  t1 = millis();
+  tau = t1 - t0;
+  d_timer += tau;
+
+  // D sampling
+  if (d_timer > D_SAMPLE) {
+
+    prevState = state;
+    d_timer = 0;
+  }
+  t0 = t1;
+
+  // PD
+  output = getOutput();
+
+  // check if outside of angle range
+  if (abs(output) > MAX_ANGLE)
+  {
+    output = MAX_ANGLE * ((output > 0) ? 1 : -1);
+  }
+
+  // write angle to servo
+  servo_write(SERVO_CENTER);
+
+  loop_count++;
+}
+
+void read_sensors() {
+
+
+  sensor_values_tL[0] = digitalRead(s1); 
+  sensor_values_tL[1] = digitalRead(s2);
+  sensor_values_centres[0] = digitalRead(s3);
+  sensor_values_centres[1] = digitalRead(s4);
+  sensor_values_tR[0] = digitalRead(s5);
+  sensor_values_tR[1] = digitalRead(s6);
+}
+
+void servo_write(int angle)
+{
+  int local_speed = speed;
+  // convert angle to millisecs
+  int millisecs = map(angle, 120, 0, SERVO_BOTTOM, SERVO_TOP);
+
+  // adjust speed based on angle
+  // local_speed = SPEED / (1 + abs(60 - angle) / 20.0 );
+
+  // adjust speed based on number of sensors
+  if (n == 0) {
+    local_speed = local_speed * 0.5;
+  }
+
+  // find diff speed adjustment
+  int speed_adjust = (((double) angle - 60.0) / (2 * MAX_ANGLE)) * DIFF_STEERING * local_speed ;
+
+  // differential steering
+  int left_speed = local_speed + speed_adjust;
+  int right_speed = local_speed - speed_adjust;
+
+  // check if speed is within bounds
+  if (left_speed > MAX_SPEED) {
+    left_speed = MAX_SPEED;
+  }
+  if (right_speed > MAX_SPEED) {
+    right_speed = MAX_SPEED;
+  }
+  if (right_speed < 0) {
+    right_speed = 0;
+  }
+  if (left_speed < 0) {
+    left_speed = 0;
+  }
+
+  // write to servo and motors
+  pwm_start(SERVO, 560, millisecs, TimerCompareFormat_t::MICROSEC_COMPARE_FORMAT);
+  // delay(20);
+  pwm_start(MOTOR_A_FORWARD, 100, left_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+  // // delay(20);
+  pwm_start(MOTOR_B_FORWARD, 100, right_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
+}
+
+
+ // collision interrupt
+void collision() {
+  digitalWrite(PC13, LOW);
+  flag = true;
+}
+
+
 double getP(int state){
   double prop = kp * state;
 
@@ -57,10 +288,7 @@ int getPrev(){
 
 double d(){
   double der;
-  if (tau == 0){
-    return 0;
-  }
-  der = kd*(state - prevState)/(double) tau;  
+  der = kd*(state - prevState); 
   return der;
 }   
 
@@ -84,108 +312,24 @@ double i() {
 
 int getOutput(){
   double output;
-  output = p() + d();
+  output = p() + d() + i();
 
   return (int) output;
 }
 
 
-
 double find_state_six(){
   double u;
 
+  // find weighted sum of sensors
+  u = 0 - SENSOR_3_VALUE*sensor_values_tL[0] - SENSOR_2_VALUE*sensor_values_tL[1]  - SENSOR_1_VALUE * sensor_values_centres[0] + SENSOR_1_VALUE *sensor_values_centres[1] + SENSOR_2_VALUE*sensor_values_tR[0] + SENSOR_3_VALUE*sensor_values_tR[1];
 
-  u = -3.0*sensor_values_tL[0] -2*sensor_values_tL[1]  - sensor_values_centres[0] + sensor_values_centres[1] + 2*sensor_values_tR[0] + 3*sensor_values_tR[1];
+  // find number of sensors
   n = sensor_values_tL[0] + sensor_values_tL[1] + sensor_values_centres[0] + sensor_values_centres[1] + sensor_values_tR[0] + sensor_values_tR[1];
+  
+  // set state if no sensors
   if (n == 0){
-    return (state > 0) ? 8 : -8 ;
+    return (state > 0) ? 3 : -3 ;
   }
   return (double) u / n;
 }
-
-void setup() {
-  // //turning servo setup
-  pinMode(SERVO, OUTPUT);
-
-  // //inturrupt button setup
-  pinMode(CONSTANT_TRIGGER, INPUT_PULLUP);
-
-  // //sensor setup
-  pinMode(s1, INPUT_PULLUP);
-  pinMode(s2, INPUT_PULLUP);
-  pinMode(s3, INPUT_PULLUP);
-  pinMode(s4, INPUT_PULLUP);
-  pinMode(s5, INPUT_PULLUP); //add for six
-  pinMode(s6, INPUT_PULLUP); //add for six
-  //pinMode(s7, INPUT_PULLUP); //add for eight
-  //pinMode(s8, INPUT_PULLUP); //add for eight
-
-  // //motor setup
-  pinMode(MOTOR_A_FORWARD, OUTPUT);
-  pinMode(MOTOR_A_BACKWARD, OUTPUT);
-  pinMode(MOTOR_B_FORWARD, OUTPUT);
-  pinMode(MOTOR_B_BACKWARD, OUTPUT);
-
-
-  // set_constants();
-  // attachInterrupt(digitalPinToInterrupt(CONSTANT_TRIGGER), set_constants, RISING);
-  servo_write(90);
-  delay(1000); 
-  t0 = micros();
-}
-
-void loop() {
-  t1 = micros();
-  if (t1 < t0) {
-    tau = 0;
-  } else {
-    tau =  t1 - t0;
-  }
-  t0 = t1;
-  read_sensors();
-  prevState = state;
-  state = find_state_six();
-  output = getOutput();
-  if (abs(output) > MAX_ANGLE)
-  {
-    output = MAX_ANGLE * ((output > 0) ? 1 : -1);
-  }
-  servo_write(70 - output);
-}
-
-void read_sensors() {
-  sensor_values_tL[0] = digitalRead(s1);
-  sensor_values_tL[1] = digitalRead(s2);
-  sensor_values_centres[0] = digitalRead(s3); //add for six sensors
-  sensor_values_centres[1] = digitalRead(s4); // add for six sensors
-  sensor_values_tR[0] = digitalRead(s5);
-  sensor_values_tR[1] = digitalRead(s6);
-}
-
-void servo_write(int angle)
-{
-  int millisecs = map(angle, 0, 180, SERVO_BOTTOM, SERVO_TOP);
-  int speed_adjust = (((double) angle - 90.0) / MAX_ANGLE) * DIFF_STEERING * SPEED ;
-  int left_speed = speed + speed_adjust;
-  int right_speed = speed - speed_adjust;
-
-  if (left_speed > MAX_SPEED) {
-    left_speed = MAX_SPEED;
-  }
-  if (right_speed > MAX_SPEED) {
-    right_speed = MAX_SPEED;
-  }
-  if (right_speed < 0) {
-    right_speed = 0;
-  }
-  if (left_speed < 0) {
-    left_speed = 0;
-  }
-  pwm_start(SERVO, 50, millisecs, TimerCompareFormat_t::MICROSEC_COMPARE_FORMAT);
-  // delay(20);
-  pwm_start(MOTOR_A_FORWARD, 100, left_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
-  // // delay(20);
-  pwm_start(MOTOR_B_FORWARD, 100, right_speed, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
-}
-
-
