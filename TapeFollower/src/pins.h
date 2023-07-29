@@ -1,9 +1,9 @@
 //motor pins
 
-#define MOTOR_A_FORWARD PA_2
-#define MOTOR_A_BACKWARD PA_3
-#define MOTOR_B_FORWARD PA_1
-#define MOTOR_B_BACKWARD PA_0
+#define MOTOR_A_FORWARD PA_0
+#define MOTOR_A_BACKWARD PA_1
+#define MOTOR_B_FORWARD PA_2
+#define MOTOR_B_BACKWARD PA_3
 #define SERVO PA_6//servo pwm pin number
 
 //reflective sensor pins
@@ -18,6 +18,9 @@
 #define KP_POT PA4 //potentiometer for kp
 #define KD_POT PA5 //potentiometer for ki
 #define CONSTANT_TRIGGER PA10 //button to trigger constant speed
+#define PICKUP_0 PA8
+#define PICKUP_1 PA9
+
 
 //servo pin
 
