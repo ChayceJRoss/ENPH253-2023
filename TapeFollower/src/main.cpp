@@ -101,8 +101,8 @@ void setup() {
   pinMode(PC13, OUTPUT);
 
   // sonar setup
-  pinMode(SONAR_INTR, INPUT_PULLUP);
-  pinMode(SONAR_PWM, OUTPUT);
+  pinMode(ECHOPIN, INPUT_PULLUP);
+  pinMode(TRIGPIN, OUTPUT);
 
   pinMode(PICKUP_0, OUTPUT);
   pinMode(PICKUP_1, OUTPUT);
