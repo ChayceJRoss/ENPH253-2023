@@ -123,6 +123,10 @@ void setup() {
   //pinMode(s7, INPUT_PULLUP); //add for eight
   //pinMode(s8, INPUT_PULLUP); //add for eight
 
+  // //sonar setup
+  pinMode(ECHOPIN, INPUT_PULLUP);
+  pinMode(TRIGPIN, OUTPUT);
+
   // //motor setup
 
   display_handler.begin(SSD1306_SWITCHCAPVCC, 0x3C);
