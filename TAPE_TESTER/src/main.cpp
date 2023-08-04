@@ -9,6 +9,8 @@
 #define MAX_ANGLE 45
 #define P_CONST 6.0
 #define D_CONST 0.0
+#define LFT PB8
+#define RHT PB9
 // // // put function declarations here:
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -16,6 +18,7 @@
 #define OLED_RESET 	-1 // This display does not have a reset pin accessible
 Adafruit_SSD1306 display_handler(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+void signal();
 void print_constants();
 
 void servo_write(int angle);
@@ -119,6 +122,8 @@ void setup() {
   pinMode(s4, INPUT_PULLUP);
   pinMode(s5, INPUT_PULLUP); //add for six
   pinMode(s6, INPUT_PULLUP); //add for six
+  pinMode(LFT, INPUT_PULLUP); //add for eight
+  pinMode(RHT, INPUT_PULLUP); //add for eight
   //pinMode(s7, INPUT_PULLUP); //add for eight
   //pinMode(s8, INPUT_PULLUP); //add for eight
 
@@ -140,7 +145,8 @@ void setup() {
   display_handler.display();
 
   // set_constants();
-  // attachInterrupt(digitalPinToInterrupt(CONSTANT_TRIGGER), set_constants, RISING);
+  // attachInterrupt(digitalPinToInterrupt(RHT), signal, RISING);
+  // attachInterrupt(digitalPinToInterrupt(LFT), signal, RISING);
   servo_write(80);
   t = millis();
   delay(1000);
@@ -179,6 +185,7 @@ void print_constants() {
     display_handler.println("KD: " + String(kd));
     display_handler.println("SENSORS: " + String(sensor_values_tL[0]) + " "+ String(sensor_values_tL[1]) + " "+  String(sensor_values_centres[0])  + " "+  String(sensor_values_centres[1]) + " " + String(sensor_values_tR[0]) + " "+ String(sensor_values_tR[1]));
     display_handler.println("STATE: " + String(state));
+    display_handler.println("SIGNAL: " + String(digitalRead(LFT)) + ", " + String(digitalRead(RHT)));
     display_handler.println("OUTPUT: " + String(output));
     display_handler.display();
 }
@@ -217,3 +224,9 @@ void servo_write(int angle)
   // // delay(20);
   pwm_start(MOTOR_B_FORWARD, 500, SPEED, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
 }
+
+ void signal() {
+  digitalWrite(PC13, LOW);
+  delay(100);
+  digitalWrite(PC13, HIGH);
+ }

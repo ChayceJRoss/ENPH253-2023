@@ -4,22 +4,25 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET 	-1 // This display does not have a reset pin accessible
-#define SPEED 15000
-#define MAX_SPEED 30000
+#define SPEED 25000
+#define MAX_SPEED 25000
 #define DIFF_STEERING 1.0
+#define DOWNHILL_SPEED 0
 #define MAX_ANGLE 34
-#define P_CONST 8.3
-#define D_CONST  20.0
+#define P_CONST 1.5
+#define D_CONST  10.0
 #define I_CONST 0.01
 #define SERVO_TOP 1130
 #define SERVO_BOTTOM 400
 #define MAX_INTEGRAL 10
-#define D_SAMPLE 100
-#define SERVO_CENTER 60
-#define BINARY_COUNTS 3
-#define SENSOR_3_VALUE 1.0
-#define SENSOR_2_VALUE 0.6
-#define SENSOR_1_VALUE 0.3
+#define D_SAMPLE 10
+#define SERVO_CENTER 80
+#define BINARY_COUNTS 0
+#define SENSOR_3_VALUE 3.0
+#define SENSOR_2_VALUE 2.0
+#define SENSOR_1_VALUE 1.0
+#define OFF_TAPE MAX_ANGLE / P_CONST
+#define SPEED_SAMPLE_TIME 100
 
 // // // put function declarations here:
 
@@ -28,8 +31,19 @@ Adafruit_SSD1306 display_handler(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET)
 
 int binary_counts = BINARY_COUNTS;
 bool flag = false;
+int left_sensor = 0;
+int right_sensor = 0;
 int n;
 int speed = SPEED;
+int speed_target = 5;
+int prev_speed_error = 0;;
+int speed_integral = 0;
+int left_encoder_count = 0;
+int left_encoder_prev = 0;
+int right_encoder_count = 0;
+int right_encoder_prev = 0;
+int encoder_speed = 0;
+int speed_error = 0;
 uint8_t light = HIGH;
 void servo_write(int angle);
 int t0 = 0;
@@ -53,8 +67,10 @@ int d_timer = 0;
 int loop_count = 0;
 int gyro_transmission[] = {0,0,0,0,0,0,0,0,0,0};
 int Addr = 0x28;
+int speed_sample_timer = 0;
 
 void collision();
+void signal_interrupt();
 double getP(int state);
 void resetState(int newState);
 int getPrev();
@@ -101,8 +117,8 @@ void setup() {
   pinMode(PC13, OUTPUT);
 
   // sonar setup
-  pinMode(SONAR_INTR, INPUT_PULLUP);
-  pinMode(SONAR_PWM, OUTPUT);
+  pinMode(LEFT_ENCODER, INPUT_PULLUP);
+  pinMode(RIGHT_ENCODER, INPUT_PULLUP);
 
   pinMode(PICKUP_0, OUTPUT);
   pinMode(PICKUP_1, OUTPUT);
@@ -149,7 +165,7 @@ void setup() {
   // Wire.setClock(10000);
  
   // heartbeat
-  digitalWrite(PC13, LOW);
+  digitalWrite(PC13, HIGH);
 
   // sonar
   // pwm_start(SONAR_PWM, 250, 90, RESOLUTION_12B_COMPARE_FORMAT);
@@ -167,7 +183,8 @@ void setup() {
   digitalWrite(PICKUP_1, HIGH);
 
   // collision interupt
-  // attachInterrupt(digitalPinToInterrupt(SONAR_INTR), collision, RISING);
+  // attachInterrupt(digitalPinToInterrupt(LEFT_TAPE_INTR), signal_interrupt, FALLING);
+  // attachInterrupt(digitalPinToInterrupt(RIGHT_TAPE_INTR), signal_interrupt, FALLING);
 }
 
 void loop() {
@@ -183,41 +200,7 @@ void loop() {
 
 
   if (loop_count > 1000) {
-    // check i2c connection
-    // Wire.beginTransmission(Addr);
-    // Wire.write(0x08);
-    // if (Wire.endTransmission() != 0) {
-    //   // if i2c failed reboot gyro
-    //   while(!bno.begin()) {
-    //     digitalWrite(PC13, LOW);
-    //   }
-    //   Wire.setClock(10000);
-    //   bno.setExtCrystalUse(false);
-
-    // }
-    light = !light;
-    digitalWrite(PC13, light);
     loop_count = 0;
-
-    // get gyro data
-    // sensors_event_t event; 
-    // bno.getEvent(&event);
-
-    // display_handler.clearDisplay();
-    // display_handler.setTextSize(1);
-    // display_handler.setTextColor(SSD1306_WHITE);
-    // display_handler.setCursor(0,0);
-    // display_handler.println(event.orientation.z);
-    // display_handler.display();
-
-    // speed adjust based on tilt
-    // if (event.orientation.z + 6 > 5) {
-    //   speed = SPEED * 0.5;
-    // } else if (event.orientation.z + 6 < -5) {
-    //   speed = SPEED * 1.5;
-    // } else {
-    //   speed = SPEED;
-    // }
   }
 
 
@@ -235,28 +218,37 @@ void loop() {
   // find state
   read_sensors();
   state = find_state_six();
-  // if ((sensor_values_tL[0] == 1) && (sensor_values_tR[1] == 1)) {
-  //   binary_counts--;
-  //   delay(100);
-  // }
-
-  // if (binary_counts == 2) {
-  //   speed = SPEED * 1.5;
-  // } else {
-  //   speed = SPEED;
-  // }
   t1 = millis();
   tau = t1 - t0;
   d_timer += tau;
-
+  if (right_encoder_prev != digitalRead(RIGHT_ENCODER)) {
+    right_encoder_prev = digitalRead(RIGHT_ENCODER);
+    right_encoder_count++;
+  }
+  if (left_encoder_prev != digitalRead(LEFT_ENCODER)) {
+    left_encoder_prev = digitalRead(LEFT_ENCODER);
+    left_encoder_count++;
+  }
   // D sampling
   if (d_timer > D_SAMPLE) {
-
+    speed_sample_timer += D_SAMPLE;
     prevState = state;
     d_timer = 0;
+    if (speed_sample_timer > SPEED_SAMPLE_TIME) {
+      speed_sample_timer = 0;
+      encoder_speed = (left_encoder_count + right_encoder_count) / 2;
+      if (encoder_speed > 9) {
+        speed = DOWNHILL_SPEED;
+        servo_write(SERVO_CENTER);
+        delay(1000);
+      } else {
+        speed = SPEED;
+      }
+      left_encoder_count = 0;
+      right_encoder_count = 0;
+    }
   }
   t0 = t1;
-
   // PD
   output = getOutput();
 
@@ -268,12 +260,14 @@ void loop() {
   // write angle to servo
   servo_write(SERVO_CENTER - output);
 
+  //speed control
+
   loop_count++;
 }
 
 void read_sensors() {
-
-
+  left_sensor = digitalRead(LEFT_ENCODER);
+  right_sensor = digitalRead(RIGHT_ENCODER);
   sensor_values_tL[0] = digitalRead(s1); 
   sensor_values_tL[1] = digitalRead(s2);
   sensor_values_centres[0] = digitalRead(s3);
@@ -297,7 +291,7 @@ void servo_write(int angle)
   }
 
   // find diff speed adjustment
-  int speed_adjust = (((double) angle - 60.0) / (2 * MAX_ANGLE)) * DIFF_STEERING * local_speed ;
+  int speed_adjust = (((double) angle - (double) SERVO_CENTER) / (2 * MAX_ANGLE)) * DIFF_STEERING * local_speed ;
 
   // differential steering
   int left_speed = local_speed + speed_adjust;
@@ -390,7 +384,14 @@ double find_state_six(){
   
   // set state if no sensors
   if (n == 0){
-    return (state > 0) ? 3 : -3 ;
+    return (state > 0) ? OFF_TAPE : -1 * OFF_TAPE ;
   }
+
   return (double) u / n;
+}
+
+void signal_interrupt() {
+  digitalWrite(PC13, LOW);
+  delay(100);
+  digitalWrite(PC13, HIGH);
 }

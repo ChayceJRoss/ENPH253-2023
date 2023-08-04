@@ -15,7 +15,7 @@
 #define s6 PB5 
 #define s7 PB8
 #define s8 PB9 //bottom rightmost sensor pin
-#define KP_POT PA4 //potentiometer for kp
+#define KP_POT PA4 //potentiomet er for kp
 #define KD_POT PA5 //potentiometer for ki
 #define CONSTANT_TRIGGER PA10 //button to trigger constant speed
 

@@ -1,9 +1,9 @@
 //motor pins
 
-#define MOTOR_A_FORWARD PA_0
-#define MOTOR_A_BACKWARD PA_1
-#define MOTOR_B_FORWARD PA_2
-#define MOTOR_B_BACKWARD PA_3
+#define MOTOR_A_FORWARD PA_1
+#define MOTOR_A_BACKWARD PA_0
+#define MOTOR_B_FORWARD PA_3
+#define MOTOR_B_BACKWARD PA_2
 #define SERVO PA_6//servo pwm pin number
 
 //reflective sensor pins
@@ -13,8 +13,8 @@
 #define s4 PB3 //front rightmost sensor pin
 #define s5 PB4 //bottom leftmost sensor pin
 #define s6 PB5 
-#define SONAR_INTR PB8
-#define SONAR_PWM PB_9 //bottom rightmost sensor pin
+#define LEFT_ENCODER PB8
+#define RIGHT_ENCODER PB9 //bottom rightmost sensor pin
 #define KP_POT PA4 //potentiometer for kp
 #define KD_POT PA5 //potentiometer for ki
 #define CONSTANT_TRIGGER PA10 //button to trigger constant speed
