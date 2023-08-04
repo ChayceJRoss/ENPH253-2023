@@ -40,6 +40,7 @@ int kp = P_CONST;
 double output = 0;
 void read_sensors();
 void set_constants();
+int check_sonar();
 
 //PD "class"
 
@@ -127,6 +128,10 @@ void setup() {
   //pinMode(s7, INPUT_PULLUP); //add for eight
   //pinMode(s8, INPUT_PULLUP); //add for eight
 
+  // //sonar setup
+  pinMode(ECHOPIN, INPUT_PULLUP);
+  pinMode(TRIGPIN, OUTPUT);
+
   // //motor setup
 
   display_handler.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -174,8 +179,20 @@ void read_sensors() {
   sensor_values_centres[1] = digitalRead(s4); // add for six sensors
   sensor_values_tR[0] = digitalRead(s5);
   sensor_values_tR[1] = digitalRead(s6);
- 
+}
 
+int check_sonar() {
+  long duration;
+  int distance; 
+
+  digitalWrite(TRIGPIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIGPIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIGPIN, LOW);
+  duration = pulseIn(ECHOPIN, HIGH);
+  distance = duration * 0.034 / 2;
+  return distance;
 }
 
 void print_constants() {
@@ -224,6 +241,7 @@ void servo_write(int angle)
   // // delay(20);
   pwm_start(MOTOR_B_FORWARD, 500, SPEED, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
 }
+
 
  void signal() {
   digitalWrite(PC13, LOW);

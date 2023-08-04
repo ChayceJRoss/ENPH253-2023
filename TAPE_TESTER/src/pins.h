@@ -18,6 +18,8 @@
 #define KP_POT PA4 //potentiomet er for kp
 #define KD_POT PA5 //potentiometer for ki
 #define CONSTANT_TRIGGER PA10 //button to trigger constant speed
+#define TRIGPIN PB9
+#define ECHOPIN PB8
 
 
 //ir sensor pins
