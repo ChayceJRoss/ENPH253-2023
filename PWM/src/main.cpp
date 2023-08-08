@@ -4,10 +4,10 @@
 #include <math.h>
 #include <Adafruit_SSD1306.h>
 
-#define MOTOR_A_FORWARD PA_1
-#define MOTOR_A_BACKWARD PA_0
-#define MOTOR_B_FORWARD PA_3
-#define MOTOR_B_BACKWARD PA_2
+#define MOTOR_A_FORWARD PA_3
+#define MOTOR_A_BACKWARD PA_2
+#define MOTOR_B_FORWARD PA_1
+#define MOTOR_B_BACKWARD PA_0
 #define SERVO PA_6
 
 // put function declarations here:
@@ -19,7 +19,7 @@
 #define OLED_RESET -1    // This display does not have a reset pin accessible
 #define SPEED 40000
 #define MAX_SPEED 40000
-#define DIFF_STEERING 0.0
+#define DIFF_STEERING 2.5
 #define MAX_ANGLE 180
 #define SERVO_CENTRE 45
 #define SERVO_BOTTOM 400
@@ -102,50 +102,22 @@ void setup()
 
 void loop()
 {
-  t1 = millis();
-  int state_right = digitalRead(RIGHT_ENCODER);
-  int state_left = digitalRead(LEFT_ENCODER);
-  
-  if (prev_state_right != state_right) {
-    count_right++;
-    prev_state_right = state_right;
-  }
-  if (prev_state_left != state_left) {
-    count_left++;
-    prev_state_left = state_left;
-  }
-
-  if ((t1 - t0) > 200) {
-    if (count_right > 20) {
-      count_right = -1;
-    }
-    if (count_left > 20) {
-      count_left = -1;
-    }
-    light = !light;
-    digitalWrite(PC13, light);
-    t0 = t1;
-    if ((count_left + count_right) / 2 > 9 ) {
-      speed = 0;
-      servo_write(45);
-      delay(1000);
-    } else {
-      speed = SPEED;
-    }
-    count_right = 0;
-    count_left = 0;
-
-
-  }
-  delay(10);
-  while(1){
   servo_write(45);
-  delay(1000);
-  servo_write(75);
-  delay(1000);
-  servo_write(0);
-  delay(1000);
-  }
+  // delay(500);
+  // servo_write(30);
+  // delay(500);
+  // servo_write(60);
+  // delay(500);
+  // servo_write(90);
+  // delay(500);
+  // servo_write(120);
+  // delay(500);
+  // servo_write(90);
+  // delay(500);
+  // servo_write(60);
+  // delay(500);
+  // servo_write(30);
+  // delay(500);
 }
 
 void servo_write(int angle)

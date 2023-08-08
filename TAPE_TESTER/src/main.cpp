@@ -9,8 +9,8 @@
 #define MAX_ANGLE 45
 #define P_CONST 6.0
 #define D_CONST 0.0
-#define LFT PB8
-#define RHT PB9
+#define RHT PB8
+#define LFT PB9
 // // // put function declarations here:
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -123,19 +123,17 @@ void setup() {
   pinMode(s4, INPUT_PULLUP);
   pinMode(s5, INPUT_PULLUP); //add for six
   pinMode(s6, INPUT_PULLUP); //add for six
-  pinMode(LFT, INPUT_PULLUP); //add for eight
   pinMode(RHT, INPUT_PULLUP); //add for eight
+  pinMode(LFT, INPUT_PULLUP); //add for eight
+
   //pinMode(s7, INPUT_PULLUP); //add for eight
   //pinMode(s8, INPUT_PULLUP); //add for eight
-
-  // //sonar setup
-  pinMode(ECHOPIN, INPUT_PULLUP);
-  pinMode(TRIGPIN, OUTPUT);
 
   // //motor setup
 
   display_handler.begin(SSD1306_SWITCHCAPVCC, 0x3C);
- 
+   pinMode(RHT, INPUT_PULLUP); //add for eight
+  pinMode(LFT, INPUT_PULLUP); //add for eight
   // Displays Adafruit logo by default. call clearDisplay immediately if you
   // don't want this.
   display_handler.display();
@@ -148,14 +146,16 @@ void setup() {
   display_handler.setCursor(0,0);
   display_handler.println("Hello world!");
   display_handler.display();
-
+  pinMode(RHT, INPUT_PULLUP); //add for eight
+  pinMode(LFT, INPUT_PULLUP); //add for eight
+  pinMode(PC13, OUTPUT);
   // set_constants();
   // attachInterrupt(digitalPinToInterrupt(RHT), signal, RISING);
   // attachInterrupt(digitalPinToInterrupt(LFT), signal, RISING);
-  servo_write(80);
+  // servo_write(80);
   t = millis();
   delay(1000);
-  prevState = find_state_six();
+  // prevState = find_state_six();
 }
 
 void loop() {
@@ -170,6 +170,7 @@ void loop() {
   state = find_state_six();
   output = getOutput();
   print_constants();
+  digitalWrite(PC13, digitalRead(PB8));
 }
 
 void read_sensors() {
@@ -179,20 +180,6 @@ void read_sensors() {
   sensor_values_centres[1] = digitalRead(s4); // add for six sensors
   sensor_values_tR[0] = digitalRead(s5);
   sensor_values_tR[1] = digitalRead(s6);
-}
-
-int check_sonar() {
-  long duration;
-  int distance; 
-
-  digitalWrite(TRIGPIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIGPIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIGPIN, LOW);
-  duration = pulseIn(ECHOPIN, HIGH);
-  distance = duration * 0.034 / 2;
-  return distance;
 }
 
 void print_constants() {
@@ -241,10 +228,3 @@ void servo_write(int angle)
   // // delay(20);
   pwm_start(MOTOR_B_FORWARD, 500, SPEED, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
 }
-
-
- void signal() {
-  digitalWrite(PC13, LOW);
-  delay(100);
-  digitalWrite(PC13, HIGH);
- }

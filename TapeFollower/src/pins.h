@@ -7,21 +7,21 @@
 #define SERVO PA_6//servo pwm pin number
 
 //reflective sensor pins
-#define s1 PA11 //front leftmost sensor pin 
-#define s2 PA12 // 
-#define s3 PA15 //
-#define s4 PB3 //front rightmost sensor pin
-#define s5 PB4 //bottom leftmost sensor pin
-#define s6 PB5 
-#define LEFT_ENCODER PB8
-#define RIGHT_ENCODER PB9 //bottom rightmost sensor pin
-#define KP_POT PA4 //potentiometer for kp
-#define KD_POT PA5 //potentiometer for ki
+#define s1 PA12 
+#define s2 PB3
+#define s3 PA11
+#define s4 PB5 //top rightmost sensor pin
+#define s5 PB4//bottom leftmost sensor pin
+#define s6 PA15 
+#define LIMIT_SWITCH PB9
+#define SIGNAL_LED PB8 //bottom rightmost sensor pin
 #define CONSTANT_TRIGGER PA10 //button to trigger constant speed
-#define PICKUP_0 PA8
-#define PICKUP_1 PA9
-
-
+#define PICKUP_LEFT_FORWARD PA4
+#define PICKUP_RIGHT_FORWARD PA5
+#define PICKUP_LEFT_BACK PB_0
+#define PICKUP_RIGHT_BACK PB_1
+#define HALL_SENSOR_RIGHT PA9
+#define HALL_SENSOR_LEFT PA8
 //servo pin
 
 
