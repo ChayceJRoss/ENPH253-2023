@@ -29,12 +29,17 @@
 #define COLLISION_STOP_TIME 500
 #define COLLISION_SPEED 0
 #define NO_CLICK_TIME 10000
-#define HILL_RIGHT_TURN_TIME 120
+#define HILL_RIGHT_TURN_TIME 100
+#define FAST_SPEED 50000
+#define COLLECTION_LAPS 2
 // // // put function declarations here:
 
 Adafruit_BNO055 bno = Adafruit_BNO055(55);
 Adafruit_SSD1306 display_handler(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+int collection_setting = HIGH;
+int lap_counter = 0;
+int running_speed = SPEED;
 int binary_counts = BINARY_COUNTS;
 bool flag = false;
 int left_sensor = 0;
@@ -275,19 +280,19 @@ void loop() {
       }
       if (hall_sensor_timer_left >= HALL_SENSOR_TIME) {
         pwm_start(PICKUP_LEFT_BACK, 50, 0, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
-        digitalWrite(PICKUP_LEFT_FORWARD, HIGH);
+        digitalWrite(PICKUP_LEFT_FORWARD, collection_setting);
       }
 
       if (hall_sensor_timer_right >= HALL_SENSOR_TIME) {
         pwm_start(PICKUP_RIGHT_BACK, 50, 0, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
-        digitalWrite(PICKUP_RIGHT_FORWARD, HIGH);
+        digitalWrite(PICKUP_RIGHT_FORWARD, collection_setting);
       }
       if (signal_timer > 1000) {
         digitalWrite(SIGNAL_LED, LOW);
       }
       if (slowdown_timer >= SLOWDOWN_TIME && collision_stop_timer >= COLLISION_STOP_TIME)
       {
-        speed = SPEED;
+        speed = running_speed;
       }
       if (limit_switch == LOW && between_switch_delay_timer >= BETWEEN_SWITCH_DELAY && no_click_timer >= NO_CLICK_TIME) {
         signal_timer = 0;
@@ -299,6 +304,13 @@ void loop() {
           speed = DOWNHILL_SPEED;
         } 
         if (limit_switch_counter > 2) {
+          lap_counter++;
+          if (lap_counter >= COLLECTION_LAPS)
+          {
+            running_speed = FAST_SPEED;
+            collection_setting = LOW;
+          }
+          
           no_click_timer = 0;
           limit_switch_counter = 0;
         } 
