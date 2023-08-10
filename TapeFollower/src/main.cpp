@@ -4,14 +4,14 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET 	-1 // This display does not have a reset pin accessible
-#define SPEED 30000
-#define MAX_SPEED 30000
+#define SPEED 50000
+#define MAX_SPEED 50000
 #define DIFF_STEERING 2.5
 #define DOWNHILL_SPEED 18000
 #define MAX_ANGLE 40
-#define P_CONST 1.5  
-#define D_CONST  2.0
-#define I_CONST 0.01
+#define P_CONST 6.0  
+#define D_CONST  0.0
+#define I_CONST 0.00
 #define SERVO_TOP 1130
 #define SERVO_BOTTOM 400
 #define MAX_INTEGRAL 10
@@ -22,10 +22,14 @@
 #define SENSOR_2_VALUE 2.0
 #define SENSOR_1_VALUE 1.0
 #define OFF_TAPE MAX_ANGLE / P_CONST
-#define SPEED_SAMPLE_TIME 10
-#define SLOWDOWN_TIME 2000
+#define SPEED_SAMPLE_TIME 100 
+#define SLOWDOWN_TIME 4000
 #define BETWEEN_SWITCH_DELAY 1000
 #define HALL_SENSOR_TIME 1000
+#define COLLISION_STOP_TIME 500
+#define COLLISION_SPEED 0
+#define NO_CLICK_TIME 10000
+#define HILL_RIGHT_TURN_TIME 120
 // // // put function declarations here:
 
 Adafruit_BNO055 bno = Adafruit_BNO055(55);
@@ -41,8 +45,12 @@ int speed = SPEED;
 int speed_target = 5;
 int hall_sensor_left = 0;
 int hall_sensor_right = 0;
+int collision_stop_timer = 0;
+int collision_sensor = 0;
 int hall_sensor_timer_right = 0;
 int hall_sensor_timer_left = 0;
+int no_click_timer = 0;
+int no_click_timer_prev = 0;
 uint8_t light = HIGH;
 void servo_write(int angle);
 int t0 = 0;
@@ -68,8 +76,11 @@ int gyro_transmission[] = {0,0,0,0,0,0,0,0,0,0};
 int Addr = 0x28;
 int speed_sample_timer = 0;
 int slowdown_timer = 0;
+int slowdown_timer_prev = 0;
 int limit_switch_counter = 0;
 int between_switch_delay_timer = 0;
+int between_switch_delay_timer_prev = 0;
+int signal_timer = 0;
 
 void collision();
 void signal_interrupt();
@@ -130,6 +141,9 @@ void setup() {
   pinMode(HALL_SENSOR_LEFT, INPUT_PULLUP);
   pinMode(HALL_SENSOR_RIGHT, INPUT_PULLUP);
 
+  pinMode(SONAR_PWM, OUTPUT);
+  pinMode(SONAR_INPUT, INPUT_PULLUP);
+
   // OLED setup
   // display_handler.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   // display_handler.display();
@@ -175,7 +189,7 @@ void setup() {
   digitalWrite(PC13, HIGH);
 
   // sonar
-  // pwm_start(SONAR_PWM, 250, 90, RESOLUTION_12B_COMPARE_FORMAT);
+  pwm_start(SONAR_PWM, 800, 20, RESOLUTION_12B_COMPARE_FORMAT);
 
   // center servo
   servo_write(SERVO_CENTER);
@@ -195,8 +209,6 @@ void setup() {
 }
 
 void loop() {
-
-
   // initialisation loops
   if (starter_loops) {
     starter_loops--;
@@ -224,16 +236,34 @@ void loop() {
   d_timer += tau;
   // D sampling
   if (d_timer >= D_SAMPLE) {
-    speed_sample_timer += D_SAMPLE;
+    speed_sample_timer += d_timer;
     prevState = state;
     d_timer = 0;
     if (speed_sample_timer >= SPEED_SAMPLE_TIME) {
+      hall_sensor_left = digitalRead(HALL_SENSOR_LEFT);
+      hall_sensor_right = digitalRead(HALL_SENSOR_RIGHT);
+      collision_sensor = digitalRead(SONAR_INPUT);
+      limit_switch = digitalRead(LIMIT_SWITCH);
+      no_click_timer += SPEED_SAMPLE_TIME;
       hall_sensor_timer_right += SPEED_SAMPLE_TIME;
       hall_sensor_timer_left += SPEED_SAMPLE_TIME;
       between_switch_delay_timer += SPEED_SAMPLE_TIME;
+      collision_stop_timer += SPEED_SAMPLE_TIME;
+      signal_timer += SPEED_SAMPLE_TIME;
       slowdown_timer += SPEED_SAMPLE_TIME;
+      if (collision_sensor == HIGH) {
+        no_click_timer_prev = no_click_timer;
+        between_switch_delay_timer_prev = between_switch_delay_timer;
+        slowdown_timer_prev = slowdown_timer;
+        collision_stop_timer = 0;
+        speed = COLLISION_SPEED;
+      }
+      if (collision_stop_timer <= COLLISION_STOP_TIME) {
+        no_click_timer = no_click_timer_prev;
+        between_switch_delay_timer = between_switch_delay_timer_prev;
+        slowdown_timer = slowdown_timer_prev;
+      }
       if (hall_sensor_left == LOW) {
-        digitalWrite(SIGNAL_LED, hall_sensor_left);
         hall_sensor_timer_left = 0;
         digitalWrite(PICKUP_LEFT_FORWARD, LOW);
         pwm_start(PICKUP_LEFT_BACK, 50, 50000, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
@@ -244,7 +274,6 @@ void loop() {
         pwm_start(PICKUP_RIGHT_BACK, 50, 50000, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
       }
       if (hall_sensor_timer_left >= HALL_SENSOR_TIME) {
-        digitalWrite(SIGNAL_LED, hall_sensor_left);
         pwm_start(PICKUP_LEFT_BACK, 50, 0, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
         digitalWrite(PICKUP_LEFT_FORWARD, HIGH);
       }
@@ -253,21 +282,24 @@ void loop() {
         pwm_start(PICKUP_RIGHT_BACK, 50, 0, TimerCompareFormat_t::RESOLUTION_16B_COMPARE_FORMAT);
         digitalWrite(PICKUP_RIGHT_FORWARD, HIGH);
       }
-      if (slowdown_timer >= SLOWDOWN_TIME)
-      {
+      if (signal_timer > 1000) {
         digitalWrite(SIGNAL_LED, LOW);
-        slowdown_timer = 0;
+      }
+      if (slowdown_timer >= SLOWDOWN_TIME && collision_stop_timer >= COLLISION_STOP_TIME)
+      {
         speed = SPEED;
       }
-      if (limit_switch == LOW && between_switch_delay_timer >= BETWEEN_SWITCH_DELAY) {
+      if (limit_switch == LOW && between_switch_delay_timer >= BETWEEN_SWITCH_DELAY && no_click_timer >= NO_CLICK_TIME) {
+        signal_timer = 0;
+        digitalWrite(SIGNAL_LED, HIGH);
         between_switch_delay_timer = 0;
         limit_switch_counter++;
-        if (limit_switch_counter > 2) {
-          digitalWrite(SIGNAL_LED, HIGH);
+        if (limit_switch_counter > 1) {
           slowdown_timer = 0;
           speed = DOWNHILL_SPEED;
         } 
-        if (limit_switch_counter > 3) {
+        if (limit_switch_counter > 2) {
+          no_click_timer = 0;
           limit_switch_counter = 0;
         } 
       }
@@ -285,9 +317,13 @@ void loop() {
   }
   if (limit_switch_counter == 3) {
     servo_write(SERVO_CENTER - output);
-  } else if (limit_switch == 0 && slowdown_timer < 800) {
+  }
+   else if (limit_switch_counter == 0 && slowdown_timer < HILL_RIGHT_TURN_TIME) {
+    signal_timer = 0;
+    digitalWrite(SIGNAL_LED, HIGH);
     servo_write(35);
-  } else {
+  } 
+  else {
   // write angle to servo
   servo_write(SERVO_CENTER - output);
   }
@@ -297,10 +333,6 @@ void loop() {
 }
 
 void read_sensors() {
-  hall_sensor_left = digitalRead(HALL_SENSOR_LEFT);
-
-  hall_sensor_right = digitalRead(HALL_SENSOR_RIGHT);
-  limit_switch = digitalRead(LIMIT_SWITCH);
   sensor_values_tL[0] = digitalRead(s1); 
   sensor_values_tL[1] = digitalRead(s2);
   sensor_values_centres[0] = digitalRead(s3);
@@ -315,13 +347,13 @@ void servo_write(int angle)
   // convert angle to millisecs
   int millisecs = map(angle, 120, 0, SERVO_BOTTOM, SERVO_TOP);
 
-  // adjust speed based on angle
+  // adjust speed based on angle 
   // local_speed = SPEED / (1 + abs(60 - angle) / 20.0 );
 
   // adjust speed based on number of sensors
 
-  if (n == 0) {
-    local_speed = local_speed * 0.4;
+  if (n == 0 && state != 0) {
+    local_speed = local_speed * 0.35;
   }
   // find diff speed adjustment
   int speed_adjust = (((double) angle - (double) SERVO_CENTER) / (2 * MAX_ANGLE)) * DIFF_STEERING * local_speed ;
@@ -409,13 +441,16 @@ double find_state_six(){
   double u;
 
   // find weighted sum of sensors
-  u = 0 - SENSOR_2_VALUE*sensor_values_tL[1]  - SENSOR_1_VALUE * sensor_values_centres[0] + SENSOR_1_VALUE *sensor_values_centres[1] + SENSOR_2_VALUE*sensor_values_tR[0];
+  u = 0 - SENSOR_3_VALUE * sensor_values_tL[0] - SENSOR_2_VALUE*sensor_values_tL[1]  - SENSOR_1_VALUE * sensor_values_centres[0] + SENSOR_1_VALUE *sensor_values_centres[1] + SENSOR_2_VALUE*sensor_values_tR[0] + SENSOR_3_VALUE * sensor_values_tR[1];
 
   // find number of sensors
-  n = + sensor_values_tL[1] + sensor_values_centres[0] + sensor_values_centres[1] + sensor_values_tR[0];
+  n = sensor_values_tL[0] + sensor_values_tL[1] + sensor_values_centres[0] + sensor_values_centres[1] + sensor_values_tR[0] + sensor_values_tR[1];
   
   // set state if no sensors
   if (n == 0){
+    if (state == 0) {
+      return 0;
+    }
     return (state > 0) ? OFF_TAPE : -1 * OFF_TAPE ;
   }
 
